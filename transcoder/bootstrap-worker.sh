@@ -18,14 +18,3 @@ cpanp -i Time::HiRes --prereqs
 cpanp -i Gearman::Client --prereqs
 cpanp -i Gearman::Worker --prereqs
 
-# Install FFMPEG
-cat << 'EOF' > /etc/yum.repos.d/dag.repo
-[dag]
-name=Dag RPM Repository for Red Hat Enterprise Linux
-baseurl=http://apt.sw.be/redhat/el$releasever/en/$basearch/dag
-gpgcheck=1
-enabled=1
-EOF
-
-yum -y install ffmpeg ffmpeg-devel
-

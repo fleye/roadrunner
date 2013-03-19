@@ -1,6 +1,8 @@
 #!/usr/local/bin/bash
 
-echo "Make sure SSH agent forwarding is enabled to allow Github to work"
+# 1. Add machine name to /etc/hosts
+# 2. Add machine to .ssh/config for SSH Agent Forwarding
+# 3. Execute script with 'cat bootstrap-box.sh | ssh -t -t ec2-user@HOST'
 
 sudo yum -y install git
 git config --global user.name "Tom Daly"
