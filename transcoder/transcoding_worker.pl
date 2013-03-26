@@ -56,6 +56,7 @@ sub copy_lrv {
 	open (SCP, ">$scp_file");
 	print SCP "$scp_key\n";
 	close SCP;
+	chmod (0600, $scp_file);
 			
 	foreach my $lrv (sort keys %args){
 		next unless $lrv =~ m/.+\.lrv/;
@@ -85,6 +86,7 @@ sub transcode_1080p_360p {
 	open (SCP, ">$scp_file");
 	print SCP "$scp_key\n";
 	close SCP;
+	chmod (0600, $scp_file);
 	
 	foreach my $mp4 (sort keys %args){
 		next unless $mp4 =~ m/.+\.mp4/;
