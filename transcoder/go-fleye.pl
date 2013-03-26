@@ -8,7 +8,7 @@ use constant DEBUG => 1;
 use Data::Dumper;
 use Config::General;
 use Cwd;
-use Digest::MD5 qw(md5_base64);
+use Digest::MD5 qw(md5_hex);
 use Gearman::Client;
 use Storable qw(freeze);
 
@@ -27,9 +27,21 @@ $gearmand->job_servers('127.0.0.1:4730') || die "Didn't connect to gearmand\n";
 
 print Dumper $gearmand;
 
+# Make sure I have an SSH key to do work with
+unless (-e '/home/ec2-user/.ssh/authorized_keys') {
+		die "I am not setup with SCP keys. Abort.\n"
+}
+
+local $/;
+open(KEY, '/home/ec2-user/.ssh/id_rsa') or die "Can't read ~/.ssh/id_rsa\n";  
+my $scp_private_key = <KEY>; 
+close (KEY);  
+
+print "$scp_private_key\n";
+
 # Locate the current working directory, which should be a mounted SDXC card, and generate an MD5 of the path.
 my $cwd = getcwd();
-my $dir_md5 = md5_base64($cwd . time());
+my $dir_md5 = md5_hex($cwd . time());
 
 print "Working Dir: $cwd\n" if DEBUG;
 print "MD5 Dir: $dir_md5\n" if DEBUG;
@@ -58,6 +70,7 @@ $lrv_files{'hostname'} = $config{'local_hostname'};
 $lrv_files{'src_path'} = $cwd;
 $lrv_files{'storage_path'} = $config{'storage_path'};
 $lrv_files{'card_id'} = $dir_md5;
+$lrv_files{'scp_key'} = $scp_private_key;
 
 my @lrv_files = glob("*.lrv");
 
@@ -99,6 +112,7 @@ $mp4_files{'hostname'} = $config{'local_hostname'};
 $mp4_files{'src_path'} = $cwd;
 $mp4_files{'storage_path'} = $config{'storage_path'};
 $mp4_files{'card_id'} = $dir_md5;
+$mp4_files{'scp_key'} = $scp_private_key;
 
 my @mp4_files = glob("*.mp4");
 
@@ -129,6 +143,6 @@ my $args = freeze \%mp4_files;
 my $task = Gearman::Task->new("transcode_1080p_360p", \$args, {
 	});
 	
-$gearmand->dispatch_background($task);
+# $gearmand->dispatch_background($task);
 
 
