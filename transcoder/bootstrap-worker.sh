@@ -6,7 +6,7 @@ yum -y install perl-CPANPLUS
 cpanp -i Term::ReadLine::Perl --prereqs
 
 # Install Gearman
-yum -y install curl curl-devel gcc uuid-devel libuuid libuuid-devel uuid boot boost-devel libevent libevent-devel
+yum -y install curl curl-devel gcc uuid-devel libuuid libuuid-devel uuid boost boost-devel libevent libevent-devel gcc-c++
 wget https://launchpad.net/gearmand/1.0/1.0.3/+download/gearmand-1.0.3.tar.gz 
 tar -zxvf gearmand-1.0.3.tar.gz
 cd gearmand-1.0.3
