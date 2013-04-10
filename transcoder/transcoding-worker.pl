@@ -13,10 +13,6 @@ my $worker = Gearman::Worker->new();
 $worker->job_servers('127.0.0.1:4730') || die "Could not connect to job server\n";
 
 $worker->register_function(
-	process_card => \&process_card
-);
-
-$worker->register_function(
 	copy_lrv => \&copy_lrv
 );
 
@@ -25,6 +21,13 @@ $worker->register_function(
 );
 
 $worker->work while 1;
+
+
+sub copy_lrv {
+	print "Received copy_lrv job.\n";
+	my %args = %{thaw($_[0]->arg)};
+	print Dumper %args;
+
 
 sub process_card {
 	print "Received process_card job.\n";
@@ -41,10 +44,7 @@ sub process_card {
 }
 
 
-sub copy_lrv {
-	print "Received copy_lrv job.\n";
-	my %args = %{thaw($_[0]->arg)};
-	print Dumper %args;
+
 
 	my $remote_hostname = delete $args{'hostname'};
 	my $src_path = delete $args{'src_path'};
@@ -75,6 +75,22 @@ sub transcode_1080p_360p {
 	print "Received transcode_1080p_360p job.\n";
 	my %args = %{thaw($_[0]->arg)};
 	print Dumper %args;
+
+sub process_card {
+	print "Received process_card job.\n";
+	my %args = %{thaw($_[0]->arg)};
+	print Dumper %args;
+
+	my $storage_path = $args{'storage_path'};
+	my $card_id = $args{'card_id'};
+	
+	system("mkdir $storage_path\/$card_id");
+	system("mkdir $storage_path\/$card_id\/240p");
+	system("mkdir $storage_path\/$card_id\/360p");
+	system("mkdir $storage_path\/$card_id\/1080p");	
+}
+
+
 
 	my $remote_hostname = delete $args{'hostname'};
 	my $src_path = delete $args{'src_path'};

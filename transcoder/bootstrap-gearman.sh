@@ -17,4 +17,6 @@ cd ..
 cpanp -i Time::HiRes --prereqs
 cpanp -i Gearman::Client --prereqs
 cpanp -i Gearman::Worker --prereqs
+cpanp -i Config::General --prereqs
+cpanp -i Digest::MD5 --prereqs
 
