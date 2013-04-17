@@ -8,6 +8,8 @@ use Storable qw (thaw);
 use File::Temp qw(tmpnam);
 use Data::Dumper;
 
+# This program is the actual gearman worker and it is mostly working.
+
 my $worker = Gearman::Worker->new();
 
 $worker->job_servers('216.177.0.43:4730') || die "Could not connect to job server\n";
