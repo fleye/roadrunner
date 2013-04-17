@@ -20,6 +20,8 @@ $worker->register_function(
 	transcode_1080p_360p => \&transcode_1080p_360p
 );
 
+print "Starting transcoding-worker: waiting for jobs\n";
+
 $worker->work while 1;
 
 sub copy_lrv {
@@ -80,13 +82,15 @@ sub transcode_1080p_360p {
 		print "Copying from $scp_hostname $src_path $mp4 to $storage_path $card_id 1080p $dst_file\n";
 		system("/usr/bin/scp -l 100000 system\@$scp_hostname\:$src_path\/$mp4 $storage_path\/$card_id\/1080p\/$dst_file");	
 			
-		print "Asynchronously kicking off transcoding job\n";
+		print "Checking for running ffmpeg job.\n";
 
-# ffmpeg -vf scale=640:360 -crf 25.0 -vcodec libx264 -acodec libvo_aacenc -ar 48000 -b:a 128k -coder 1 -rc_lookahead 60 -threads 0 -i 1080p 20130324081942_GOPR0001-2013-03-24-08-32-58-1080p.mp4 360p/20130324081942_GOPR0001-2013-03-24-08-32-58-360p.mp4 
+		while  (qx/pgrep ffmpeg/) {
+			print "FFmpeg process is running, blocking and sleeping 60 seconds.\n";
+			sleep 60;
+		}
 
-
-
-# 		system("cp $storage_path\/$card_id\/1080p\/$dst_file $storage_path\/$card_id\/360p\/$dst_file")
+		print "Kicking off FFmpeg asynchrounously. Look for screen.\n";
+		system("/usr/bin/screen -d -m /usr/bin/ffmpeg -i $storage_path\/$card_id\/1080p\/$dst_file -vf scale=640:360 -crf 25.0 -vcodec libx264 -acodec libvo_aacenc -ar 48000 -b:a 128k -coder 1 -rc_lookahead 60 -threads 0 -y $storage_path\/$card_id\/360p\/$dst_file");
 	}
 		
 	return 1;
