@@ -74,6 +74,8 @@ my $task = Gearman::Task->new("copy_lrv", \$args, {
 	
 $gearmand->dispatch_background($task);
 
+sleep 10;
+
 # Find all of the MP4 files, and create a hash of the files and their remote files names (which includes created time)
 
 my %mp4_files;
