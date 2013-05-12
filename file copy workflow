@@ -1,0 +1,34 @@
+
+Parse my config file
+	my hostname
+	hostname of gearmand
+	ingestion path
+	240p remote path
+	360p remote path
+	path to transcoding presets
+	
+Find the current working directory
+	Generate a unique ID for the working path	using md5
+	Create a remote output directory for the work done
+
+Locate all .lrv files in the directory
+	generate a hash of the file names and the creation stamps
+	push into JSON
+	queue a high priority gearman job for processing LRVs
+	
+Locate all .mp4 files in the directory
+	generate a hash of the file names and the creation stamps
+	push into JSON
+	queue a low priority gearman job for processing mp4s with transcoding
+	
+
+
+TODO:
+EXCEPTION HANDLING everywhere!!!!
+Transcoding program
+Worker daemonization and output logging.
+job monitoring!
+
+
+
+
