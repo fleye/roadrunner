@@ -11,35 +11,41 @@ use File::Util;
 use DBI;
 use DBD::mysql;
 use Digest::MD5 qw(md5_hex);
+use Sys::Hostname;
 use Data::Dumper;
 
 use constant DEBUG => 1;
 
-my $config_file = '../roadrunner.conf';
-my $mount_start;
-my $mount_end;
-my $local_path_glob;
+my $hostname = hostname();
 
-GetOptions("config_file|c=s" => \$config_file,
-						"mount_start|s=s" => \$mount_start,
-						"mount_end|e=s" => \$mount_end,
-						"local_path_glob|l=s" => \$local_path_glob,
-					) || usage_and_die();
+
+my $db_config_file = '../etc/db.conf';
+my $readermode = 0;
+my $local_card_path;
+my $truncate_jobs = 0;
+my $help = 0;
+
+GetOptions("db_config_file|c=s" => \$db_config_file,
+					 "readermode|r" => \$readermode,
+					 "local_path_glob|l=s" => \$local_card_path,
+					 "truncate_jobs|t" => \$truncate_jobs,
+					 "help|h" => \$help,
+					);
+
+usage_and_die() if ($readermode && $local_card_path);
+usage_and_die() unless ($readermode || $local_card_path || $truncate_jobs);
+usage_and_die() if $help;
 						
-unless (($mount_start && $mount_end) || $local_path_glob) {
-		usage_and_die();
-}
-
-my $conf = new Config::General($config_file);
+my $conf = new Config::General($db_config_file) || die "Could not open config file: $db_config_file\n";
 my %config = $conf->getall;
 
-my $event_name = 'default'; # We specify an event name for tracking.
-
-my $db_host = 'localhost';
-my $db_user = 'roadrunner';
-my $db_pass = '6rg2WMP9uulYkhE4-87A';
-my $db_name = 'fleye_roadrunner';
+my $db_host = $config{'db_host'};
+my $db_user = $config{'db_user'};
+my $db_pass = $config{'db_pass'};
+my $db_name = $config{'db_name'};
 my $db_table = 'jobs';
+
+my $event_name = 'default'; # We specify an event name for tracking.
 
 my $dbh = DBI->connect(
 	"DBI:mysql:database=$db_name;host=$db_host",
@@ -48,23 +54,18 @@ my $dbh = DBI->connect(
   {'RaiseError' => 1}
 ) || die "Could not connect to MySQL Server\n";
 
-if ($mount_start) {
-	die "Need mount_end argument. Aborting...\n" unless $mount_end;
-}
-
-if ($mount_end) {
-	die "Need mount_start argument. Aborting...\n" unless $mount_start;
-}
-
 # Setup a global batch ID for this run.
 my $rand = 100000 * rand();
 my $rand_md5 = md5_hex($rand);
 my $batch_id = substr(md5_hex($rand_md5), 0, 6);
 print "go-roadrunner.pl global batch ID: $batch_id\n";
 
-my @card_dirs;
+if ($truncate_jobs) {
+	print "Truncating jobs table\n";
+	$dbh->do("TRUNCATE TABLE jobs") || die $dbh->errstr;
+}
 
-my $local_card_path = $local_path_glob;
+my @card_dirs;
 
 if ($local_card_path) {
 	@card_dirs = glob("$local_card_path*");
@@ -75,22 +76,20 @@ if ($local_card_path) {
 	}
 }
 
-if ($mount_start && $mount_end) {
-	my $mount_prefix = '/card';
+if ($readermode) {
+	my $mount_prefix = 'card';
 	
-	my @devices = ("$mount_start" .. "$mount_end");
+	my @devices = ('b' .. 'z');
 	
 	foreach my $device (@devices) {
 		$device = "sd" . $device;
 		
 		print "Checking for device: $device\n";
-	
 		if (-e "/dev/$device") {
-			print "Found device: $device - enumerating all slices by false mount.\n";
-			system("/bin/mount -f /dev/$device");
+			# print "Found device: $device - enumerating all slices by false mount.\n";
+			# system("/bin/mount -f /dev/$device");
 		
-			my $devnode = $device;
-			$devnode .= '1';
+			my $devnode = $device . '1';
 		
 			if (-e "/dev/$devnode") {
 				print "Found devnode: $devnode - checking for corresponding card directory.\n";
@@ -100,20 +99,21 @@ if ($mount_start && $mount_end) {
 				unless (-e $carddir) {
 					print "Cannot find card directory - creating...\n";
 					system("mkdir $carddir");
-			}
+				}
 			
 				print "Ready to attempt exfat mount of $devnode to $carddir";
 				system("/usr/sbin/mount.exfat /dev/$devnode $carddir");
 
 				print "Card mounted. Locating files.\n";
 				push (@card_dirs, $carddir);
+			}
 		}
-
+	}
+	
 	print "Mounted devices:\n";
 	system("/bin/mount");
 
-	}
-} }
+}
 
 foreach my $dir (@card_dirs) {
 	print "Working on directory: $dir\n" if DEBUG;
@@ -205,13 +205,14 @@ sub create_job {
 
 	my $renamed_file = $ctime_year . $ctime_month . $ctime_day . $ctime_hour . $ctime_min . $ctime_sec . '_' . $basename . '.mp4';
 
-	my $dst_path = "/MOSS/$event_name/$card_name/$renamed_file";
-
 	my $job_type;
+	my $dst_path;
 	if ($extension eq 'MP4'){
 		$job_type = 'transcode_mp4';
+		$dst_path = "/MOSS/go-fleye/$event_name/$card_name/1080p/$renamed_file";
 	} elsif ($extension eq 'LRV') {
 		$job_type = 'copy_lrv';
+		$dst_path = "/MOSS/go-fleye/$event_name/$card_name/240p/$renamed_file";
 	}
 		
 	my $src_ip = '216.177.0.43';
@@ -219,22 +220,23 @@ sub create_job {
 	my $job_status = 'ready';
 	my $proc_host = 'unknown';
 
-	print ("Inserting DB job: ", join('||', $event_name, $card_name, $src_ip, $file, $dst_path, $job_type, $job_status, $proc_host), "\n") if DEBUG;
+	print ("Inserting DB job: ", join('||', $event_name, $card_name, $src_ip, $file, $dst_path, $job_type, $job_status, $proc_host, $file_bytes), "\n") if DEBUG;
 
-	my $sth = $dbh->prepare("INSERT INTO $db_table (event_name, card_name, src_ip, src_path, dst_path, job_type, job_status, proc_host) values (?,?,?,?,?,?,?,?)");
+	my $sth = $dbh->prepare("INSERT INTO $db_table (event_name, card_name, src_ip, src_path, dst_path, job_type, job_status, proc_host, file_size) values (?,?,?,?,?,?,?,?,?)");
 
-	$sth->execute($event_name, $card_name, $src_ip, $file, $dst_path, $job_type, $job_status, $proc_host);
+	$sth->execute($event_name, $card_name, $src_ip, $file, $dst_path, $job_type, $job_status, $proc_host, $file_bytes);
 	
 	return 1;
 }
 
 sub usage_and_die {
 	print "Error in command options. go-roadrunner requires some arguements:\n";
-	print "\t -c | --config_file: A config file, defaults to 'roadrunner.conf'\n";
-	print "\t -s | --mount_start: A starting device letter for mounting cards (requires '-e')\n";
-	print "\t -e | --mount_end: An ending device letter for mounting cards (requires '-s')\n";
-	print "\t -l | --local_path_glob: A pattern for which globbing should occur for locally available paths.\n";
-	print "Requires -s/-e OR -l at a minimum.\n";
+	print " -c | --db_config_file: A config file, defaults to '../etc/db.conf'\n";
+	print " -r | -readermode: Look for files on attached card readers\n";
+	print " -l | --local_path_glob: A pattern for which globbing should occur for locally available paths.\n";
+	print " -t | --truncate_jobs: Truncates the jobs table; stops all processing.\n";
+	print " -h | --help: Prints this help.\n";
+	print "Requires -r OR -l at a minimum.\n";
 	exit;
 }
 

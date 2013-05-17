@@ -25,11 +25,15 @@ print $cgi->header();
 
 print $cgi->start_html('Fleye Job Status');
 
-print $cgi->h1('Fleye Job Status');
+print $cgi->h1('Fleye - Roadrunner Job Status');
+
+my $datetime = scalar localtime();
+
+print $cgi->h3("Last Updated: $datetime");
 
 print "<table border='2'>\n";
 print "<tr>\n";
-print "<th>Job ID</th><th>Event Name</th><th>Card Name</th><th>Source IP</th><th>Source Path</th><th>Destination Path</th><th>Job Type</th><th>Job Status</th><th>Processing Host</th><th>Network Time</th><th>Encoding Time</th>\n";
+print "<th>Job ID</th><th>Event Name</th><th>Card Name</th><th>Source IP</th><th>Source Path</th><th>Destination Path</th><th>Job Type</th><th>Job Status</th><th>Processing Host</th><th>File Size</th><th>Network Time</th><th>Encoding Time</th>\n";
 print "</tr>\n";
 
 my $sth = $dbh->prepare("SELECT * FROM $db_table");
@@ -62,6 +66,9 @@ while (my $ref = $sth->fetchrow_hashref()) {
 	print "</td>\n";
 	print "<td>\n";
 	print $ref->{'proc_host'};
+	print "</td>\n";
+	print "<td>\n";
+	print $ref->{'file_size'};
 	print "</td>\n";
 	print "<td>\n";
 	print $ref->{'network_time'};
