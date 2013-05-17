@@ -8,6 +8,7 @@ use Config::General;
 use DBI;
 use DBD::mysql;
 use Digest::MD5 qw(md5_hex);
+use File::Basename;
 use Sys::Hostname;
 use Proc::Daemon;
 use Data::Dumper;
@@ -100,22 +101,15 @@ while (!$time_to_die) {
 		my $card_name = $ref->{'card_name'};
 		my $src_ip = $ref->{'src_ip'};
 		my $src_path = $ref->{'src_path'};
-		my $storage_path = '/MOSS/go-fleye';
 		my $dst_path = $ref->{'dst_path'};
 		
 		print "Received copy_lrv job: $job_id || $event_name || $card_name || $src_ip || $src_path || $dst_path\n";
 
-		my @dst_path_parts = split('/', $dst_path);
+		my $dst_dir = dirname($dst_path);
+		my $dst_file = basename($dst_path);
 
-		shift @dst_path_parts;
-		my $dst_file = pop @dst_path_parts;
-
-		my $create_dir;
-		foreach my $pathpart (@dst_path_parts) {
-			$create_dir .= "/$pathpart";
-			unless (-e "$create_dir") {
-				system("mkdir $create_dir");
-			}
+		unless (-e "$dst_dir") {
+			system("mkdir -p $dst_dir");
 		}
 
 		my $start_time = time();

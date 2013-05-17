@@ -22,21 +22,22 @@ prereq:
 
 install:
 	/bin/mkdir -p /usr/local/fleye
+	/bin/mkdir -p /usr/local/fleye/roadrunner
 	
-	/bin/mkdir -p /usr/local/fleye/bin
-	/usr/bin/install -m 0755 -o root -g root bin/go-roadrunner.pl /usr/local/fleye/bin/go-roadrunner.pl
-	/usr/bin/install -m 0755 -o root -g root bin/worker-copy-lrv.pl /usr/local/fleye/bin/worker-copy-lrv.pl
-	/usr/bin/install -m 0755 -o root -g root bin/worker-transcode-mp4.pl /usr/local/fleye/bin/transcode-mp4.pl
+	/bin/mkdir -p /usr/local/fleye/roadrunner/bin
+	/usr/bin/install -m 0755 -o root -g root bin/go-roadrunner.pl /usr/local/fleye/roadrunner/bin/go-roadrunner.pl
+	/usr/bin/install -m 0755 -o root -g root bin/worker-copy-lrv.pl /usr/local/fleye/roadrunner/bin/worker-copy-lrv.pl
+	/usr/bin/install -m 0755 -o root -g root bin/worker-transcode-mp4.pl /usr/local/fleye/roadrunner/bin/transcode-mp4.pl
 
-	/bin/mkdir -p /usr/local/fleye/etc
-	/usr/bin/install -m 0755 -o root -g root etc/db.conf /usr/local/fleye/etc/db.conf
+	/bin/mkdir -p /usr/local/fleye/roadrunner/etc
+	/usr/bin/install -m 0755 -o root -g root etc/db.conf /usr/local/fleye/roadrunner/etc/db.conf
 	
-	/bin/mkdir -p /usr/local/fleye/www
-	/usr/bin/install -m 0755 -o root -g root www/index.html /usr/local/fleye/www/index.html
+	/bin/mkdir -p /usr/local/fleye/roadrunner/www
+	/usr/bin/install -m 0755 -o root -g root www/index.html /usr/local/fleye/roadrunner/www/index.html
 
-	/bin/mkdir -p /usr/local/fleye/www/cgi-bin
-	/usr/bin/install -m 0755 -o root -g root www/cgi-bin/config.cgi /usr/local/fleye/www/cgi-bin/config.cgi
-	/usr/bin/install -m 0755 -o root -g root www/cgi-bin/jobs.cgi /usr/local/fleye/www/cgi-bin/jobs.cgi
+	/bin/mkdir -p /usr/local/fleye/roadrunner/www/cgi-bin
+	/usr/bin/install -m 0755 -o root -g root www/cgi-bin/config.cgi /usr/local/fleye/roadrunner/www/cgi-bin/config.cgi
+	/usr/bin/install -m 0755 -o root -g root www/cgi-bin/jobs.cgi /usr/local/fleye/roadrunner/www/cgi-bin/jobs.cgi
 
 	# FFmpeg
 	/usr/bin/install -m 0755 -o root -g root src/ffmpeg-linux64-20130404/ffmpeg /usr/bin/ffmpeg

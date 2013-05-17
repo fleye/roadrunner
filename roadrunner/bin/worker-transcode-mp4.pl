@@ -3,6 +3,7 @@ use Config::General;
 use DBI;
 use DBD::mysql;
 use Digest::MD5 qw(md5_hex);
+use File::Basename;
 use Sys::Hostname;
 use Proc::Daemon;
 use Data::Dumper;
@@ -98,20 +99,12 @@ while (!$time_to_die) {
 		my $dst_path = $ref->{'dst_path'};
 		
 		print "Received transcode_mp4 job: $job_id || $event_name || $card_name || $src_ip || $src_path || $dst_path\n";
-
-		my @dst_path_parts = split('/', $dst_path);
 		
-		print Dumper @dst_path_parts;
+		my $dst_dir = dirname($dst_path);
+		my $dst_file = basename($dst_path);
 
-		shift @dst_path_parts;
-		my $dst_file = pop @dst_path_parts;
-
-		my $create_dir;
-		foreach my $pathpart (@dst_path_parts) {
-			$create_dir .= "/$pathpart";
-			unless (-e "$create_dir") {
-				system("mkdir $create_dir");
-			}
+		unless (-e "$dst_dir") {
+			system("mkdir -p $dst_dir");
 		}
 
 		my $start_time = time();
@@ -161,15 +154,15 @@ while (!$time_to_die) {
 				$dbh->do("UPDATE jobs SET job_status = 'encoding', proc_host = ? WHERE job_id = ?", undef, $hostname, $job_id) || die $dbh->errstr;
 
 
-				my $path_1080 = $create_dir;
+				my $path_1080 = $dst_dir;
 
-				$create_dir =~ s/1080p/360p/;
+				$dst_dir =~ s/1080p/360p/;
 
-				unless (-e "$create_dir") {
-					system("mkdir $create_dir");
+				unless (-e "$dst_dir") {
+					system("mkdir -p $dst_dir");
 				}
 				
-				my $path_360 = $create_dir;
+				my $path_360 = $dst_dir;
 				
 				print "JobID: $job_id - Starting up FFmpeg.\n";
 				$start_time = time();
