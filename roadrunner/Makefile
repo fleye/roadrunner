@@ -4,7 +4,6 @@ all:
 prereq:
 	# From Yum
 	yum -y install mysql
-	yum -y install ganglia ganglia-gmond
 	yum -y install perl-CPAN
 	yum -y install perl-CPANPLUS 
 	
@@ -27,7 +26,7 @@ install:
 	/bin/mkdir -p /usr/local/fleye/roadrunner/bin
 	/usr/bin/install -m 0755 -o root -g root bin/go-roadrunner.pl /usr/local/fleye/roadrunner/bin/go-roadrunner.pl
 	/usr/bin/install -m 0755 -o root -g root bin/worker-copy-lrv.pl /usr/local/fleye/roadrunner/bin/worker-copy-lrv.pl
-	/usr/bin/install -m 0755 -o root -g root bin/worker-transcode-mp4.pl /usr/local/fleye/roadrunner/bin/transcode-mp4.pl
+	/usr/bin/install -m 0755 -o root -g root bin/worker-transcode-mp4.pl /usr/local/fleye/roadrunner/bin/worker-transcode-mp4.pl
 
 	/bin/mkdir -p /usr/local/fleye/roadrunner/etc
 	/usr/bin/install -m 0755 -o root -g root etc/db.conf /usr/local/fleye/roadrunner/etc/db.conf
