@@ -13,6 +13,7 @@ CREATE TABLE `jobs` (
   `file_size` int(11) DEFAULT '0',
   `network_time` int(11) DEFAULT '0',
   `encode_time` int(11) DEFAULT '0',
+  `modified` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`job_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 

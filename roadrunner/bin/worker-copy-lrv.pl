@@ -45,6 +45,9 @@ unless (getpwuid($>) eq $run_user) { # Check to make sure we are running as root
 	die "Aborting. This program must be run as the user: $run_user.\n";	
 }
 
+# Unbuffered output, please
+$|++;
+
 # Check to see if we're already running, we only need one of these.
 if (open(PID, '/home/system/worker-copy-lrv/pid.txt')) {
 	my $pid = <PID>;
@@ -102,37 +105,40 @@ while (!$time_to_die) {
 		
 		print "Received copy_lrv job: $job_id || $event_name || $card_name || $src_ip || $src_path || $dst_path\n";
 
-		unless (-e "$storage_path\/$event_name") {
-			system("mkdir $storage_path\/$event_name");
-		}
+		my @dst_path_parts = split('/', $dst_path);
 
-		unless (-e "$storage_path\/$event_name\/$card_name") {
-			system("mkdir $storage_path\/$event_name\/$card_name");
-		}
+		shift @dst_path_parts;
+		my $dst_file = pop @dst_path_parts;
 
-		unless (-e "$storage_path\/$event_name\/$card_name\/240p") {
-			system("mkdir $storage_path\/$event_name\/$card_name\/240p");
+		my $create_dir;
+		foreach my $pathpart (@dst_path_parts) {
+			$create_dir .= "/$pathpart";
+			unless (-e "$create_dir") {
+				system("mkdir $create_dir");
+			}
 		}
 
 		my $start_time = time();
 		
-		$dbh->do("UPDATE jobs SET job_status = 'running', proc_host = ? WHERE job_id = ?", undef, $hostname, $job_id) || die $dbh->errstr;
+		$dbh->do("UPDATE jobs SET job_status = 'copying', proc_host = ? WHERE job_id = ?", undef, $hostname, $job_id) || die $dbh->errstr;
+
+		my $scp_quiet = $daemonize ? '-q' : '';
 		
-		print "Executing SCP command to fetch file\n" if DEBUG;
-		my $scpret = system("/usr/bin/scp -B -l $scp_bw -c $scp_cipher system\@$src_ip\:$src_path $dst_path");
+		print "JobID: $job_id - Fetching via SCP: $src_path $dst_path.\n";
+		my $scpret = system("/usr/bin/scp $scp_quiet -B -l $scp_bw -c $scp_cipher system\@$src_ip\:$src_path $dst_path");
 		
 		if ($scpret == -1) {
-			print "SCP job failed to START; reseting status to ready for another runner; backing off.\n";
+			print "JobID: $job_id - SCP job failed to START; reseting status to ready for another runner; backing off.\n";
 			$dbh->do("UPDATE jobs SET job_status = 'ready' WHERE job_id = ?", undef, $job_id) || die $dbh->errstr;
 			sleep $sleep_interval;
 		} elsif ($scpret) {
-			print "SCP job failed; reseting status to ready for another runner; backing off.\n";
+			print "JobID: $job_id - SCP job failed; reseting status to ready for another runner; backing off.\n";
 			$dbh->do("UPDATE jobs SET job_status = 'ready' WHERE job_id = ?", undef, $job_id) || die $dbh->errstr;
 			sleep $sleep_interval;
 		} else { 
-			print "SCP job finished successfully\n";
 			my $end_time = time();
 			my $network_time = $end_time - $start_time;
+			print "JobID: $job_id - SCP job finished successfully: $network_time seconds.\n";
 			$dbh->do("UPDATE jobs SET job_status = 'complete', network_time = ? WHERE job_id = ?", undef, $network_time, $job_id) || die $dbh->errstr;
 		} 
 	}
