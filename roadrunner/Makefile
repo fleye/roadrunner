@@ -9,13 +9,13 @@ prereq:
 	yum -y install perl-CPANPLUS 
 	
 	# Perl Modules
-	# cpanp -i Term::ReadLine::Perl --prereqs
-	# cpanp -i Config::General --prereqs
-	# cpanp -i DBI --prereqs
-	# cpanp -i DBD::mysql --prereqs
-	# cpanp -i Digest::MD5 --prereqs
-	# cpanp -i File::Util --prereqs
-	# cpanp -i Proc::Daemon --prereqs
+	cpanp -i Term::ReadLine::Perl --prereqs
+	cpanp -i Config::General --prereqs
+	cpanp -i DBI --prereqs
+	cpanp -i DBD::mysql --prereqs
+	cpanp -i Digest::MD5 --prereqs
+	cpanp -i File::Util --prereqs
+	cpanp -i Proc::Daemon --prereqs
 	
 	# FFmpeg from source
 	cd src && tar -zxvf ffmpeg-linux64-20130404.tar.gz
