@@ -14,7 +14,7 @@ use constant DEBUG => 1;
 
 my $hostname = hostname();
 
-my $db_config_file = '../etc/db.conf';
+my $db_config_file = '/usr/local/fleye/roadrunner/etc/db.conf';
 my $daemonize = 0;
 my $help = 0;
 
@@ -83,7 +83,7 @@ while (!$time_to_die) {
 	) || die "Could not connect to MySQL Server\n";
 
 
-	my $sth = $dbh->prepare("SELECT * FROM $db_table WHERE job_type = 'transcode_mp4' AND job_status = 'ready' ORDER BY job_id ASC LIMIT 1");
+	my $sth = $dbh->prepare("SELECT * FROM $db_table WHERE card_name NOT IN (SELECT DISTINCT(card_name) FROM $db_table WHERE job_status NOT IN ('ready', 'complete')) AND job_type = 'transcode_mp4' AND job_status = 'ready' ORDER BY job_id ASC LIMIT 1");
 	$sth->execute();
 
 	unless ($sth->rows()) {
@@ -214,7 +214,7 @@ sub terminate {
 
 sub usage_and_die {
 	print "Usage:\n";
-	print " -c | --db_config_file: Database config file. Defaults to ../etc/db.conf.\n";
+	print " -c | --db_config_file: Database config file. Defaults to /usr/local/fleye/roadrunner/etc/db.conf.\n";
 	print " -d | --daemonize: Run as a daemon.\n";
 	print " -h | --help: Print this help.\n";
 	exit;

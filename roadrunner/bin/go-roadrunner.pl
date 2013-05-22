@@ -19,7 +19,7 @@ use constant DEBUG => 1;
 my $hostname = hostname();
 
 
-my $db_config_file = '../etc/db.conf';
+my $db_config_file = '/usr/local/fleye/roadrunner/etc/db.conf';
 my $readermode = 0;
 my $local_card_path;
 my $truncate_jobs = 0;
@@ -79,7 +79,7 @@ if ($local_card_path) {
 if ($readermode) {
 	my $mount_prefix = 'card';
 	
-	my @devices = ('b' .. 'z');
+	my @devices = ('b' .. 'am');
 	
 	foreach my $device (@devices) {
 		$device = "sd" . $device;
@@ -231,7 +231,7 @@ sub create_job {
 
 sub usage_and_die {
 	print "Error in command options. go-roadrunner requires some arguements:\n";
-	print " -c | --db_config_file: A config file, defaults to '../etc/db.conf'\n";
+	print " -c | --db_config_file: A config file, defaults to '/usr/local/fleye/roadrunner/etc/db.conf'\n";
 	print " -r | -readermode: Look for files on attached card readers\n";
 	print " -l | --local_path_glob: A pattern for which globbing should occur for locally available paths.\n";
 	print " -t | --truncate_jobs: Truncates the jobs table; stops all processing.\n";
