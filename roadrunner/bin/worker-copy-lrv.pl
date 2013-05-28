@@ -19,10 +19,12 @@ my $hostname = hostname();
 
 my $db_config_file = '/usr/local/fleye/roadrunner/etc/db.conf';
 my $daemonize = 0;
+my $kill = 0;
 my $help = 0;
 
 GetOptions("db_config_file|c=s" => \$db_config_file,
 					 "daemonize|d" => \$daemonize,
+					 "kill|k" => \$kill,
 					 "help|h" => \$help,
 					);
 					
@@ -43,28 +45,68 @@ my $run_group = 'system';
 my $time_to_die = 0;
 
 unless (getpwuid($>) eq $run_user) { # Check to make sure we are running as root so we can drop privileges.
-	die "Aborting. This program must be run as the user: $run_user.\n";	
+	die "This program must be run as the user: $run_user. Aborting...\n";	
+}
+
+# Check to make sure /MOSS is available
+my $moss_mounted = grep (/MOSS/, qx("/bin/df"));
+
+unless($moss_mounted){
+	die "Could not find /MOSS filesystem. Is it mounted? Aborting...\n";
+}
+
+# Check to make sure we have an SSH key to use.
+unless (-e '/home/system/.ssh/id_rsa'){
+	die "Could not locate SSH private key file: /home/system/.ssh/id_rsa. Have you setup SSH keys? Aborting...\n";
+}
+
+# Check for existing daemon.
+my $pid = undef;
+
+if (open(PID, '/home/system/worker-copy-lrv/pid.txt')) {
+	$pid = <PID>;
+	close PID;
+}
+
+# We've been asked to kill an existing daemon
+if ($kill) {
+	if (kill (0, $pid)){
+		if (kill(15, $pid)) {
+			die "Killed running process PID: $pid. Exiting...\n";
+		} else {
+			die "Unable to kill existing process PID: $pid. Exiting..\n";
+		}
+	} else {
+		die "Unable to locate running process to kill. Exiting...\n";
+	}
+}
+
+# Don't run two of this daemon
+if (kill (0, $pid)) {
+	die "Daemon is already running. Aborting...\n";
 }
 
 # Unbuffered output, please
 $|++;
 
-# Check to see if we're already running, we only need one of these.
-if (open(PID, '/home/system/worker-copy-lrv/pid.txt')) {
-	my $pid = <PID>;
-	close PID;
-	my $running = kill (0, $pid);
-	if ($running) {
-		die "Daemon is already running. Aborting...\n";
-	}
-}
-
+# If we are to run as a daemon...
 if ($daemonize) {
+	my $work_dir = '/home/system/worker-copy-lrv';
+	
+	unless (-e $work_dir) {
+		print "Creating working directory: $work_dir\n";
+		system("/bin/mkdir -p $work_dir");
+	}
+
+	my $log_file = 'log.txt.' . time();
+
 	my $daemon = Proc::Daemon->new(
-		work_dir => '/home/system/worker-copy-lrv',
-		child_STDOUT => '+>>log.txt',
-		pid_file => 'pid.txt',
+		work_dir => "$work_dir",
+		child_STDOUT => "+>>$log_file",
+		pid_file => '/home/system/worker-copy-lrv/pid.txt',
 		);
+		
+		print "Daemonizing...\n";
 		
 		$daemon->Init;
 }
@@ -149,7 +191,8 @@ sub terminate {
 sub usage_and_die {
 	print "Usage:\n";
 	print " -c | --db_config_file: Database config file. Defaults to /usr/local/fleye/roadrunner/etc/db.conf.\n";
-	print " -d | --daemonize: Run as a daemon.\n";
+	print " -d | --daemonize: Run as a daemon, fork to background.\n";
+	print " -k | --kill: Kill running daemon and exit.\n";
 	print " -h | --help: Print this help.\n";
 	exit;
 }
