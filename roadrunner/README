@@ -16,5 +16,9 @@ server 2.pool.ntp.org iburst
 server 3.pool.ntp.org iburst
 sudo service ntp start
 
+# Install ExFAT driver
+
 # Setup System User and SSH Keys
+
+# Configure Ganglia
 

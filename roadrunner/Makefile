@@ -46,7 +46,3 @@ install:
 
 clean:
 	/bin/rm -rf src/ffmpeg-linux64-20130404
-
-directions:
-
-
