@@ -82,7 +82,7 @@ if ($kill) {
 }
 
 # Don't run two of this daemon
-if (kill (0, $pid)) {
+if ($pid && kill (0, $pid)) {
 	die "Daemon is already running. Aborting...\n";
 }
 
