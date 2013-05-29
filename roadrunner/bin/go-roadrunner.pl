@@ -14,26 +14,30 @@ use Digest::MD5 qw(md5_hex);
 use Sys::Hostname;
 use Data::Dumper;
 
-use constant DEBUG => 1;
+use constant DEBUG => 0;
 
 my $hostname = hostname();
 
-
 my $db_config_file = '/usr/local/fleye/roadrunner/etc/db.conf';
-my $readermode = 0;
 my $local_card_path;
+my $mount_cards = 0;
+my $unmount_cards = 0;
 my $truncate_jobs = 0;
+my $force = 0;
+my $status_report = 0;
 my $help = 0;
 
 GetOptions("db_config_file|c=s" => \$db_config_file,
-					 "readermode|r" => \$readermode,
 					 "local_path_glob|l=s" => \$local_card_path,
+					 "mount_cards|m" => \$mount_cards,
+					 "unmount_cards|u" => \$unmount_cards,
 					 "truncate_jobs|t" => \$truncate_jobs,
+					 "force|f" => \$force,
+					 "status_report|s" => \$status_report,
 					 "help|h" => \$help,
 					);
 
-usage_and_die() if ($readermode && $local_card_path);
-usage_and_die() unless ($readermode || $local_card_path || $truncate_jobs);
+usage_and_die() if ($mount_cards && $local_card_path);
 usage_and_die() if $help;
 						
 my $conf = new Config::General($db_config_file) || die "Could not open config file: $db_config_file\n";
@@ -45,6 +49,14 @@ my $db_pass = $config{'db_pass'};
 my $db_name = $config{'db_name'};
 my $db_table = 'jobs';
 
+my $run_user = 'root';
+my $run_group = 'root';
+
+unless (getpwuid($>) eq $run_user) { # Check to make sure we are running as root so we can drop privileges.
+	die "This program must be run as the user: $run_user. We need permission to perform mount/unmount commands.\n";	
+}
+
+
 my $event_name = 'default'; # We specify an event name for tracking.
 
 my $dbh = DBI->connect(
@@ -54,29 +66,86 @@ my $dbh = DBI->connect(
   {'RaiseError' => 1}
 ) || die "Could not connect to MySQL Server\n";
 
-# Setup a global batch ID for this run.
+if ($truncate_jobs) {
+	my $sth = $dbh->prepare("SELECT * FROM $db_table WHERE job_status != 'complete'");
+	$sth->execute();
+
+	if ($sth->rows && !$force) {
+		die "Jobs are running on cards. Aborting...\n";
+	}
+
+	print "Truncating jobs table\n";
+	$dbh->do("TRUNCATE TABLE jobs") || die $dbh->errstr;
+	die "Truncated jobs table\n";
+}
+
+if ($unmount_cards) {
+	my $sth = $dbh->prepare("SELECT * FROM $db_table WHERE job_status != 'complete'");
+	$sth->execute();
+
+	if ($sth->rows && !$force) {
+		die "Jobs are running on cards. Aborting...\n";
+	}
+
+	print "Unmounting cards.\n";
+
+	my $mount_prefix = 'card';
+	
+	my @devices = ('b' .. 'am');
+	
+	foreach my $device (@devices) {
+		my $mount_name = "/card-sd" . $device . '1';
+		
+		print "Unmounting $mount_name: ";
+		my $umountret = system("/bin/umount $mount_name");
+		
+		if ($umountret == -1) {
+			print "Call to /bin/umount failed. Aborting $mount_name.\n";
+			next;
+		} elsif ($umountret) {
+			print "Failed to unmount filesystem from $mount_name. Skipping...\n";
+			next;
+		} else {
+			print "OK...\n";
+		}
+	}
+	
+	print "\n\nMounted devices:\n";
+	system("/bin/mount");
+
+	die "\nUmounting complete. Check mount output above before removing cards.\n";
+}
+
+if ($status_report) {
+	status_report();
+	exit;
+}
+
+unless ($local_card_path || $mount_cards) {
+	status_report();
+	exit;
+}
+
+# Mainline program runs from here. Setup a global batch ID for this run.
 my $rand = 100000 * rand();
 my $rand_md5 = md5_hex($rand);
 my $batch_id = substr(md5_hex($rand_md5), 0, 6);
 print "go-roadrunner.pl global batch ID: $batch_id\n";
 
-if ($truncate_jobs) {
-	print "Truncating jobs table\n";
-	$dbh->do("TRUNCATE TABLE jobs") || die $dbh->errstr;
-}
-
 my @card_dirs;
 
 if ($local_card_path) {
 	@card_dirs = glob("$local_card_path*");
+
 	if (DEBUG) {
 			print "Processing local card path glob. Found directories:\n";
 			print join("\n", @card_dirs);
 			print "\n\n";
 	}
+
 }
 
-if ($readermode) {
+if ($mount_cards) {
 	my $mount_prefix = 'card';
 	
 	my @devices = ('b' .. 'am');
@@ -92,7 +161,7 @@ if ($readermode) {
 			my $devnode = $device . '1';
 		
 			if (-e "/dev/$devnode") {
-				print "Found devnode: $devnode - checking for corresponding card directory.\n";
+				print "Found devnode: $devnode - checking for corresponding card directory.\n" if DEBUG;
 		
 				my $carddir = "/$mount_prefix-$devnode";
 		
@@ -101,31 +170,47 @@ if ($readermode) {
 					system("mkdir $carddir");
 				}
 			
-				print "Ready to attempt exfat mount of $devnode to $carddir";
-				system("/usr/sbin/mount.exfat /dev/$devnode $carddir");
+				print "Attempting exfat mount of $devnode to $carddir: \n";
 
-				print "Card mounted. Locating files.\n";
-				push (@card_dirs, $carddir);
+				my $mountret = system("/usr/sbin/mount.exfat /dev/$devnode $carddir");
+
+				if ($mountret == -1) {
+					print "Call to /usr/sbin/mount.exfat failed. Aborting device $devnode.\n";
+					next;
+				} elsif ($mountret) {
+					print "Failed to mount valid ExFAT filesystem from $devnode. Skipping...\n";
+					next;
+				} else {
+					push (@card_dirs, $carddir);
+					print "Mounted...\n";
+				}
 			}
 		}
 	}
 	
-	print "Mounted devices:\n";
+	print "\n\nSummary of mounted devices:\n";
 	system("/bin/mount");
+	print "\n\n";
 
 }
 
 foreach my $dir (@card_dirs) {
-	print "Working on directory: $dir\n" if DEBUG;
+	print "Searching for video files on: $dir\n";
 	my ($event_name, $card_name) = extract_manifest($dir);
 
 	my @video_files = find_files($dir);
 
 	foreach my $file (@video_files) {
-		print "Processing file: $file\n" if DEBUG;
+		print "Processing video file: $file\n" if DEBUG;
 		create_job($event_name, $card_name, $file);
 	}
 }
+
+print "End of Batch: $batch_id\n";
+
+status_report();
+
+# End main program. Enter subroutines.
 
 sub extract_manifest {
 		my $path = shift @_;
@@ -163,12 +248,10 @@ sub find_files {
 
 	my @card_files = $f->list_dir("$path", '--recurse');
 	
-	print "Found files: \n" if DEBUG;
-	print Dumper @card_files if DEBUG;
-	
 	my @video_files;
 	
 	foreach my $file (@card_files) {
+		print "Found file: $file\n";
 		if ($file =~ /\.LRV$/i) {
 			push (@video_files, $file);
 		} elsif ($file =~ /\.MP4$/i) {
@@ -229,14 +312,35 @@ sub create_job {
 	return 1;
 }
 
+sub status_report {
+	my $sth = $dbh->prepare("select count(job_id) as cnt from jobs where job_type = 'copy_lrv' and job_status != 'complete';");
+	$sth->execute();
+	while (my $ref = $sth->fetchrow_hashref()) {
+		print ("LRV Jobs in Queue: ", $ref->{'cnt'}, " Jobs\n");
+	}
+	$sth->finish();
+	
+	$sth = $dbh->prepare("select count(job_id) as cnt from jobs where job_type = 'transcode_mp4' and job_status != 'complete';");
+	$sth->execute();
+	while (my $ref = $sth->fetchrow_hashref()) {
+		print ("MP4 Jobs in Queue: ", $ref->{'cnt'}, " Jobs\n");
+	}
+	$sth->finish();
+
+	return 1;
+}
+
 sub usage_and_die {
 	print "Error in command options. go-roadrunner requires some arguements:\n";
 	print " -c | --db_config_file: A config file, defaults to '/usr/local/fleye/roadrunner/etc/db.conf'\n";
-	print " -r | -readermode: Look for files on attached card readers\n";
-	print " -l | --local_path_glob: A pattern for which globbing should occur for locally available paths.\n";
-	print " -t | --truncate_jobs: Truncates the jobs table; stops all processing.\n";
+	print " -l | --local_path_glob: For testing: A pattern to glob local paths from. E.X. '/local-'\n";
+	print " -m | --mount_cards: Mount cards and look for files on attached card readers\n";
+	print " -u | --unmount_cards: Umount all cards. Checks to make sure no jobs are running.\n";
+	print " -t | --truncate_jobs: Truncates the jobs table; stops all processing. Checks to make sure no jobs are running.\n";
+	print " -f | --force: Combine with -u or -t; forcefully unmount or truncate.\n";
+	print " -s | --status_report: Prints a quick status report.\n";
 	print " -h | --help: Prints this help.\n";
-	print "Requires -r OR -l at a minimum.\n";
+	print "By default, a status report is printed if no arguments are supplied.\n";
 	exit;
 }
 
