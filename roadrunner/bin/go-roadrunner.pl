@@ -172,7 +172,7 @@ if ($mount_cards) {
 			
 				print "Attempting exfat mount of $devnode to $carddir: \n";
 
-				my $mountret = system("/usr/sbin/mount.exfat /dev/$devnode $carddir");
+				my $mountret = system("/usr/sbin/mount.exfat -o ro -o noatime /dev/$devnode $carddir");
 
 				if ($mountret == -1) {
 					print "Call to /usr/sbin/mount.exfat failed. Aborting device $devnode.\n";
@@ -217,21 +217,24 @@ sub extract_manifest {
 		
 		my ($event_name, $card_name);
 		
+		my %items;
+		
 		if (open(MANIFEST, "$path/manifest.txt")) {
-			my %items;
 			while(<MANIFEST>) {
 				chomp;
+				s/\s+//g;
 				my ($key, $value) = split(':');
 				if ($key) {
 					$items{$key} = $value;
 				}
 			}
 			close MANIFEST;
-
+		}
+			
+		if ($items{'event'} && $items{'card'}) {
 			# generate a random suffix on the event and card name
-			$event_name = join('-', $items{'event_name'}, $batch_id);
-			$card_name = join('-', $items{'card_name'}, $batch_id);
-
+			$event_name = join('-', $items{'event'}, $batch_id);
+			$card_name = join('-', $items{'card'}, $batch_id);
 		} else { # No manifest file was found.
 			my ($card_path) = $path =~ m/^\/([\w-]+)\/?/;
 			$event_name = join('-', 'event', $batch_id);

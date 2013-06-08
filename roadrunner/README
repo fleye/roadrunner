@@ -1,10 +1,6 @@
+### Detailed system information can be found in the "doc" directory.
 
-
-Installation Requirements
-
-# Configure Users
-
-
+### Installation Requirements
 
 # NTP
 sudo yum install ntp
@@ -18,7 +14,9 @@ sudo service ntp start
 
 # Install ExFAT driver
 
-# Setup System User and SSH Keys
+
+# Configure Users
+Requires a "system" user and SSH keypairs from encode to ingest boxes.
 
 # Configure Ganglia
 

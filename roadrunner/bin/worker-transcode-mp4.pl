@@ -125,7 +125,7 @@ while (!$time_to_die) {
 	) || die "Could not connect to MySQL Server\n";
 
 
-	my $sth = $dbh->prepare("SELECT * FROM $db_table WHERE card_name NOT IN (SELECT DISTINCT(card_name) FROM $db_table WHERE job_status NOT IN ('ready', 'complete')) AND job_type = 'transcode_mp4' AND job_status = 'ready' ORDER BY job_id ASC LIMIT 1");
+	my $sth = $dbh->prepare("SELECT * FROM $db_table WHERE card_name NOT IN (SELECT DISTINCT(card_name) FROM $db_table WHERE job_status NOT IN ('ready', 'complete')) AND job_type = 'transcode_mp4' AND job_status = 'ready' ORDER BY modified,job_id ASC LIMIT 1");
 	$sth->execute();
 
 	unless ($sth->rows()) {

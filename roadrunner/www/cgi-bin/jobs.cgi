@@ -216,7 +216,7 @@ print "<tr>\n";
 print "<th>Job ID</th><th>Event Name</th><th>Card Name</th><th>Source IP</th><th>Source Path</th><th>Destination Path</th><th>Job Type</th><th>Job Status</th><th>Processing Host</th><th>File Size</th><th>Network Time</th><th>Encoding Time</th><th>Last Modified</th>\n";
 print "</tr>\n";
 
-my $sth = $dbh->prepare("SELECT * FROM $db_table WHERE job_status = 'ready' ORDER BY job_id");
+my $sth = $dbh->prepare("SELECT * FROM $db_table WHERE job_status = 'ready' ORDER BY modified,job_id ASC");
 $sth->execute();
 while (my $ref = $sth->fetchrow_hashref()) {
 	print "<tr>\n";
